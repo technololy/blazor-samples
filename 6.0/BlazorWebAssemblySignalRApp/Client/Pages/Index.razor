@@ -10,7 +10,12 @@
         User:
         <input @bind="userInput" />
     </label>
+    <label>
+        User to chat with:
+        <input @bind="recipientUserName" />
+    </label>
 </div>
+<button @onclick="BeginConnection">Begin Chat </button>
 <div class="form-group">
     <label>
         Message:
@@ -32,31 +37,79 @@
     private HubConnection? hubConnection;
     private List<string> messages = new List<string>();
     private string? userInput;
+    private string? recipientUserName;
     private string? messageInput;
+    private string? groupName;
+    private Models.NotificationMessage? messageNotification;
 
     protected override async Task OnInitializedAsync()
     {
-        hubConnection = new HubConnectionBuilder()
-            .WithUrl(Navigation.ToAbsoluteUri("/chathub"))
-            .Build();
-
-        hubConnection.On<string, string>("ReceiveMessage", (user, message) =>
+        messageNotification = new Models.NotificationMessage();
+        await Task.Delay(1);
+        //hubConnection = new HubConnectionBuilder().Build();
+    }
+    private async Task BeginConnection()
+    {
+        if(string.IsNullOrEmpty(userInput))
         {
-            var encodedMsg = $"{user}: {message}";
+            return;
+        }
+        if (string.IsNullOrEmpty(recipientUserName))
+        {
+            return;
+        }
+        groupName = FormGroupName(userInput, recipientUserName);
+
+        //hubConnection = new HubConnectionBuilder()
+        //    .WithUrl(Navigation.ToAbsoluteUri("/MessageHub"))
+        //    .Build();
+        hubConnection = new HubConnectionBuilder()
+       .WithUrl($"https://localhost:5001/MessageHub?userId={userInput}&groupName={groupName}")
+       .Build();
+
+        //hubConnection.On<string, string>("ReceiveMessage", (user, message) =>
+        //{
+        //    var encodedMsg = $"{user}: {message}";
+        //    messages.Add(encodedMsg);
+        //    StateHasChanged();
+        //});
+
+        hubConnection.On<string>("NotificationReceived", (message) =>
+        {
+            var encodedMsg = $"{message}";
             messages.Add(encodedMsg);
             StateHasChanged();
         });
 
+        hubConnection.On<string>("GroupNotificationReceived", (message) =>
+        {
+            var encodedMsg = $"{message}";
+            messages.Add(encodedMsg);
+            StateHasChanged();
+        });
+
+
         await hubConnection.StartAsync();
     }
-
     private async Task Send()
-	{
-	    if (hubConnection is not null)
-            {
-                await hubConnection.SendAsync("SendMessage", userInput, messageInput);
-            }
-	}
+    {
+        //if (hubConnection is not null)
+        //{
+        //    await hubConnection.SendAsync("SendMessage", userInput, messageInput);
+        //}
+        if (string.IsNullOrEmpty(messageInput)) return;
+        if (string.IsNullOrEmpty(recipientUserName)) return;
+
+        //if (hubConnection is not null)
+        //{
+        //    await hubConnection.SendAsync("SendNotificationToClient", recipientUserName, messageInput);
+        //}
+
+        if (hubConnection is not null)
+        {
+            await hubConnection.SendAsync("SendNotificationToGroup", groupName, messageInput);
+        }
+    }
 
     public bool IsConnected =>
         hubConnection?.State == HubConnectionState.Connected;
@@ -67,5 +120,17 @@
         {
             await hubConnection.DisposeAsync();
         }
+    }
+
+    private string FormGroupName(string userId, string userId2)
+    {
+        string calculatedGroupName = "";
+        IEnumerable<string> groupMembers = new List<string>() { userId, userId2 };
+        groupMembers = groupMembers.OrderBy(x => x);
+        foreach (var item in groupMembers)
+        {
+            calculatedGroupName += item;
+        }
+        return calculatedGroupName;
     }
 }
