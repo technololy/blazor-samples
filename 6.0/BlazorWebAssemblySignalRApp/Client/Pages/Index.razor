@@ -15,7 +15,7 @@
         <input @bind="recipientUserName" />
     </label>
 </div>
-<button @onclick="BeginConnection">Begin Chat </button>
+<button @onclick="BeginConnection">Begin Chat</button>
 <div class="form-group">
     <label>
         Message:
@@ -50,7 +50,7 @@
     }
     private async Task BeginConnection()
     {
-        if(string.IsNullOrEmpty(userInput))
+        if (string.IsNullOrEmpty(userInput))
         {
             return;
         }
@@ -64,7 +64,7 @@
         //    .WithUrl(Navigation.ToAbsoluteUri("/MessageHub"))
         //    .Build();
         hubConnection = new HubConnectionBuilder()
-       .WithUrl($"https://localhost:5001/MessageHub?userId={userInput}&groupName={groupName}")
+       .WithUrl($"https://kmnapi.azurewebsites.net/MessageHub?userId={userInput}&groupName={groupName}")
        .Build();
 
         //hubConnection.On<string, string>("ReceiveMessage", (user, message) =>
@@ -83,7 +83,7 @@
 
         hubConnection.On<string>("GroupNotificationReceived", (message) =>
         {
-            var encodedMsg = $"{message}";
+            var encodedMsg = $"{message.Split("~")}";
             messages.Add(encodedMsg);
             StateHasChanged();
         });
@@ -107,7 +107,7 @@
 
         if (hubConnection is not null)
         {
-            await hubConnection.SendAsync("SendNotificationToGroup", groupName, messageInput);
+            await hubConnection.SendAsync("SendNotificationToGroup", groupName, $"{userInput}~ {messageInput}~ {DateTime.Now}");
         }
     }
 
